@@ -54,19 +54,19 @@ if not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.title("🛡️ SimCenter OS")
-        email = st.text_input("البريد الإلكتروني | Email").lower().strip()
+        email_input = st.text_input("البريد الإلكتروني | Email").lower().strip()
         if st.button("دخول | Login"):
-            if email in USERS:
+            if email_input in USERS:
                 st.session_state.authenticated = True
-                st.session_state.user = USERS[email]
+                st.session_state.user = USERS[email_input]
                 st.rerun()
             else: st.error("Access Denied | غير مسجل")
 else:
-    user = st.session_state.user
-    role = user['role']
-    st.sidebar.markdown(f"### ✨ {T['welcome']}, {user['name']}")
+    curr_user = st.session_state.user
+    role = curr_user['role']
+    st.sidebar.markdown(f"### ✨ {T['welcome']}, {curr_user['name']}")
     
-    # تحديد القوائم بناءً على ملاحظاتك (إخفاء الطلبات الخارجية عن المنسق)
+    # تحديد القوائم بناءً على الصلاحيات
     if role == "owner": 
         menu = [T['dash'], T['leaves'], T['cal'], T['ext'], T['rep']]
     elif role == "coordinator": 
@@ -78,95 +78,73 @@ else:
 
     # --- 5. محتوى الصفحات ---
 
-    # 📊 الداشبورد مع الرسوم البيانية
     if choice == T['dash']:
         st.header(T['dash'])
-        
-        # بطاقات الأرقام
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("مدربين اليوم", "8")
         m2.metric("مشغلين اليوم", "5")
         m3.metric("إجمالي الكادر", "25")
         m4.metric("كورسات المحاكاة", "24")
-
         st.markdown("---")
         
-        # الرسوم البيانية
-        col_chart1, col_chart2 = st.columns([2, 1])
-        
-        with col_chart1:
+        c_chart1, c_chart2 = st.columns([2, 1])
+        with c_chart1:
             st.subheader(T['hours_status'])
-            # رسم بياني للتقدم (Gauge)
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number", value = 850,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "ساعة من أصل 1200"},
                 gauge = {'axis': {'range': [None, 1200]}, 'bar': {'color': "#4B90FF"}}
             ))
             fig_gauge.update_layout(height=300)
             st.plotly_chart(fig_gauge, use_container_width=True)
 
-        with col_chart2:
+        with c_chart2:
             st.subheader("🤖 حالة الدمى")
             fig_pie = px.pie(values=[32, 8], names=[T['working'], T['maintenance']], 
                              color_discrete_sequence=["#28a745", "#dc3545"], hole=0.4)
             fig_pie.update_layout(height=300, showlegend=True)
             st.plotly_chart(fig_pie, use_container_width=True)
 
-    # 📅 تقويم الحضور (للمدير والمنسق)
     elif choice == T['cal']:
         st.header(T['cal'])
         st.info("عرض التواجد اليومي والشهري للمساعدة في الجدولة")
-        
-        # توليد أيام الشهر الحالي
         current_date = datetime.now()
         dates = [(current_date + timedelta(days=i)).strftime('%d/%m') for i in range(10)]
-        
-        data_cal = {
-            "الموظف / Employee": ["صالح", "أحمد", "سارة", "خالد", "نورة"],
-        }
-        for d in dates: data_cal[d] = ["✅", "✅", "✅", "✅", "✅"]
-        
-        # محاكاة بعض الغيابات للتوضيح
-        data_cal[dates[1]][1] = "❌"
-        data_cal[dates[3]][3] = "❌"
-        
-        df_cal = pd.DataFrame(data_cal)
-        st.dataframe(df_cal.set_index("الموظف / Employee"), use_container_width=True)
-        st.caption("✅: متواجد | ❌: إجازة معتمدة")
+        data_cal = {"الموظف / Employee": ["صالح", "أحمد", "سارة", "خالد", "نورة"]}
+        for d in dates: data_cal[d] = ["✅"] * 5
+        data_cal[dates[1]][1] = "❌" # مثال لغياب
+        st.dataframe(pd.DataFrame(data_cal).set_index("الموظف / Employee"), use_container_width=True)
 
-    # 📝 طلب إجازة (للموظف)
     elif choice == T['apply']:
         st.subheader(T['apply'])
         with st.form("leave_request"):
             start = st.date_input("بداية الإجازة")
             end = st.date_input("نهاية الإجازة")
             reason = st.text_area("سبب الطلب")
-            submit = st.form_submit_button(T['apply'])
-            if submit:
-                st.session_state.leave_db.append({
-                    "الموظف": user['name'], "من": start, "إلى": end, "الحالة": "قيد الانتظار"
-                })
+            if st.form_submit_button(T['apply']):
+                st.session_state.leave_db.append({"الموظف": curr_user['name'], "من": start, "إلى": end, "الحالة": "قيد الانتظار"})
                 st.balloons()
-                st.success("تم إرسال طلبك بنجاح للمدير العام")
+                st.success("تم إرسال طلبك بنجاح")
 
-    # 📥 إدارة الإجازات (للمدير فقط)
     elif choice == T['leaves'] and role == "owner":
         st.header("📥 طلبات الإجازات الواردة")
         if st.session_state.leave_db:
             st.table(pd.DataFrame(st.session_state.leave_db))
-            if st.button("اعتماد جميع الطلبات"):
-                st.success("تم التحديث والموافقة")
-        else:
-            st.info("لا توجد طلبات معلقة")
+        else: st.info("لا توجد طلبات معلقة")
 
-    # 🔄 تحديث البيانات (أيقونة المنسق)
     elif choice == T['update'] and role == "coordinator":
         st.header(T['update'])
-        col_up1, col_up2 = st.columns(2)
-        with col_up1:
-            st.number_input("عدد المدربين الحاضرين اليوم", value=8)
-            st.number_input("عدد المشغلين الحاضرين اليوم", value=5)
-        with col_up2:
-            st.number_input("عدد الدمى التي تعمل", value=32)
-            st.number_input("عدد الدمى
+        with st.form("update_form"):
+            st.number_input("عدد المدربين", value=8)
+            st.number_input("عدد المشغلين", value=5)
+            st.number_input("عدد الدمى", value=32)
+            if st.form_submit_button("حفظ التحديثات"):
+                st.success("تم التحديث بنجاح")
+
+    elif choice == T['ext'] and role == "owner":
+        st.header(T['ext'])
+        st.write("جدول متابعة الطلبات الخارجية...")
+
+    if st.sidebar.button(T['logout']):
+        st.session_state.authenticated = False
+        st.rerun()
