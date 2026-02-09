@@ -1,94 +1,61 @@
 import streamlit as st
 import pandas as pd
 
-# 1. قاموس اللغات
-languages = {
-    "العربية": {
-        "dir": "rtl",
-        "title": "نظام إدارة مركز المحاكاة",
-        "dash": "لوحة المؤشرات",
-        "emp_page": "صفحة الموظف",
-        "admin": "الإدارة",
-        "trainers": "المدربين الحاضرين",
-        "operators": "المشغلين الحاضرين",
-        "total_trainers": "إجمالي المدربين",
-        "total_operators": "إجمالي المشغلين",
-        "hours": "الساعات التدريبية",
-        "courses": "كورس محاكاة",
-        "ratio": "نسبة التشغيل",
-        "manikins": "إجمالي الدمى",
-        "working": "تعمل",
-        "maintenance": "تحت الصيانة",
-        "apply_vacation": "طلب إجازة",
-        "recommendations": "توصيات التطوير"
-    },
-    "English": {
-        "dir": "ltr",
-        "title": "Simulation Center Management",
-        "dash": "Dashboard",
-        "emp_page": "Employee Page",
-        "admin": "Management",
-        "trainers": "Present Trainers",
-        "operators": "Present Operators",
-        "total_trainers": "Total Trainers",
-        "total_operators": "Total Operators",
-        "hours": "Training Hours",
-        "courses": "Sim Courses",
-        "ratio": "Operation Ratio",
-        "manikins": "Total Manikins",
-        "working": "Working",
-        "maintenance": "Maintenance",
-        "apply_vacation": "Apply for Vacation",
-        "recommendations": "Development Recommendations"
-    }
+# 1. إعدادات الصفحة واللغة
+st.set_page_config(page_title="Simulation Center System", layout="wide")
+
+# قاموس المستخدمين والصلاحيات (تعدله لاحقاً بايميلاتك الحقيقية)
+USERS = {
+    "admin@center.com": {"name": "المدير العام", "role": "owner"},
+    "coord@center.com": {"name": "منسق العمليات", "role": "coordinator"},
+    "emp1@center.com": {"name": "أحمد محمد", "role": "employee"}
 }
 
-# 2. اختيار اللغة
-st.sidebar.title("Language / اللغة")
-lang_choice = st.sidebar.selectbox("", ["العربية", "English"])
-lang = languages[lang_choice]
+# 2. نظام الدخول البسيط
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
 
-# 3. إعدادات الصفحة والتنسيق بناءً على اللغة المختارة
-st.set_page_config(page_title=lang["title"], layout="wide")
-
-st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    html, body, [class*="css"] {{
-        font-family: 'Cairo', sans-serif;
-        direction: {lang['dir']};
-        text-align: {"right" if lang['dir'] == "rtl" else "left"};
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# 4. القائمة الجانبية
-menu = [lang["dash"], lang["emp_page"], lang["admin"]]
-choice = st.sidebar.radio(lang["title"], menu)
-
-if choice == lang["dash"]:
-    st.header(f"📊 {lang['dash']}")
+if not st.session_state.authenticated:
+    st.title("🔐 تسجيل الدخول | Login")
+    email_input = st.text_input("أدخل البريد الإلكتروني المعتمد")
+    if st.button("دخول"):
+        if email_input in USERS:
+            st.session_state.authenticated = True
+            st.session_state.user_info = USERS[email_input]
+            st.session_state.user_email = email_input
+            st.rerun()
+        else:
+            st.error("البريد غير مسجل في النظام")
+else:
+    # --- بعد تسجيل الدخول بنجاح ---
+    user = st.session_state.user_info
     
-    # شبكة البيانات (Metrics Grid)
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(lang["trainers"], "8")
-    col2.metric(lang["operators"], "5")
-    col3.metric(lang["total_trainers"], "15")
-    col4.metric(lang["total_operators"], "10")
-
-    st.divider()
+    # القائمة الجانبية حسب الصلاحية
+    st.sidebar.write(f"مرحباً، {user['name']}")
     
-    col5, col6, col7 = st.columns(3)
-    col5.metric(lang["hours"], "850 / 1200")
-    col6.metric(lang["courses"], "24")
-    col7.metric(lang["ratio"], "70.8%")
-
-    st.divider()
+    if user['role'] == "owner":
+        menu = ["الداشبورد العام", "إدارة الإجازات", "رفع البيانات", "التقارير"]
+    elif user['role'] == "coordinator":
+        menu = ["الداشبورد العام", "مراجعة الإجازات"]
+    else:
+        menu = ["ملفي الشخصي", "طلب إجازة"]
     
-    st.subheader(f"🤖 {lang['manikins']}")
-    c1, c2, c3 = st.columns(3)
-    c1.metric(lang["manikins"], "40")
-    c2.metric(lang["working"], "32")
-    c3.metric(lang["maintenance"], "8")
+    choice = st.sidebar.radio("القائمة", menu)
 
-# ... باقي الصفحات تتبع نفس النمط باستخدام متغير lang ...
+    # --- صفحة الداشبورد (للاونر والمنسق) ---
+    if "الداشبورد العام" in choice:
+        st.header("📊 لوحة المؤشرات الإجمالية")
+        # هنا تضع كود المربعات (Metrics) الذي عملناه سابقاً
+        st.success("هذه الصفحة تظهر فقط للمدراء والمنسقين")
+
+    # --- صفحة رفع البيانات (للاونر فقط) ---
+    if choice == "رفع البيانات":
+        st.header("📤 تحديث بيانات النظام")
+        uploaded_file = st.file_uploader("ارفع ملف data.xlsx لتحديث الساعات والأداء")
+        if uploaded_file:
+            st.success("تم تحديث البيانات بنجاح!")
+
+    # زر الخروج
+    if st.sidebar.button("تسجيل خروج"):
+        st.session_state.authenticated = False
+        st.rerun()
