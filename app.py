@@ -6,9 +6,9 @@ st.set_page_config(page_title="Simulation Center System", layout="wide")
 
 # قاموس المستخدمين والصلاحيات (تعدله لاحقاً بايميلاتك الحقيقية)
 USERS = {
-    "admin@center.com": {"name": "المدير العام", "role": "owner"},
-    "coord@center.com": {"name": "منسق العمليات", "role": "coordinator"},
-    "emp1@center.com": {"name": "أحمد محمد", "role": "employee"}
+    "sal2nass@gmail.com": {"name": "المدير العام", "role": "owner"},
+    "sal4nass@gmail.com": {"name": "منسق العمليات", "role": "coordinator"},
+    "sal_saleh@hotmail.com": {"name": "أحمد محمد", "role": "employee"}
 }
 
 # 2. نظام الدخول البسيط
