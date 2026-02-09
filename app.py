@@ -4,28 +4,32 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import calendar
 
-# --- 1. الإعدادات الجمالية (ألوان SIMWorld) ---
+# --- 1. الإعدادات البصرية (ستايل SIMWorld) ---
 st.set_page_config(page_title="SimCenter Pro OS", layout="wide")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     * { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; }
-    .stApp { background-color: #fcfcfc; }
-    /* ستايل التقويم الشهري */
-    .calendar-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
-    .calendar-table th { background: #f8f9fa; padding: 15px; border: 1px solid #eee; text-align: center; color: #333; }
-    .calendar-table td { width: 14%; height: 120px; vertical-align: top; padding: 10px; border: 1px solid #eee; transition: 0.3s; }
-    .calendar-table td:hover { background: #f0f7ff; }
-    .day-num { font-weight: bold; color: #999; margin-bottom: 5px; display: block; }
-    .session-card { background: #fff4e5; border-right: 4px solid #ffa000; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 4px; color: #856404; cursor: pointer; }
-    .absent-card { background: #fee2e2; border-right: 4px solid #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 11px; color: #991b1b; }
-    /* المربعات العلوية */
-    .metric-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eee; }
+    .stApp { background-color: #ffffff; }
+    
+    /* تصميم التقويم الشهري */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
+    .cal-head { background-color: #f8fafc; padding: 10px; text-align: center; font-weight: bold; color: #475569; border: 1px solid #e2e8f0; }
+    .cal-day { background-color: white; min-height: 120px; padding: 8px; border: 1px solid #e2e8f0; position: relative; }
+    .cal-day:hover { background-color: #f1f5f9; }
+    .day-number { font-size: 14px; font-weight: 700; color: #94a3b8; margin-bottom: 8px; display: block; }
+    
+    /* بطاقات المهام والإجازات */
+    .task-card { background-color: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 4px; border-right: 4px solid #3b82f6; font-weight: 600; }
+    .leave-card { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 4px; border-right: 4px solid #ef4444; font-weight: 600; }
+    
+    /* إحصائيات الداشبورد */
+    .kpi-card { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. إدارة البيانات ---
+# --- 2. إدارة مخزن البيانات ---
 if 'leave_requests' not in st.session_state: st.session_state.leave_requests = []
 if 'staff_schedules' not in st.session_state:
     st.session_state.staff_schedules = pd.DataFrame(columns=["الموظف", "التاريخ", "المهمة", "المنسق", "المدرب", "الساعات", "الإدارة"])
@@ -40,162 +44,155 @@ USERS = {
 
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 
-# --- 4. الدخول ---
+# --- 4. تسجيل الدخول ---
 if not st.session_state.authenticated:
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<h1 style='text-align:center;'>🔐 تسجيل الدخول</h1>", unsafe_allow_html=True)
-        email_in = st.text_input("البريد الإلكتروني").lower().strip()
-        if st.button("دخول", use_container_width=True):
-            if email_in in USERS:
+        st.markdown("<h2 style='text-align:center;'>SimCenter Pro OS</h2>", unsafe_allow_html=True)
+        email = st.text_input("البريد الإلكتروني").lower().strip()
+        if st.button("تسجيل الدخول", use_container_width=True):
+            if email in USERS:
                 st.session_state.authenticated = True
-                st.session_state.user = USERS[email_in]
+                st.session_state.user = USERS[email]
                 st.rerun()
-            else: st.error("المستخدم غير مسجل")
+            else: st.error("عذراً، البريد غير مسجل")
 else:
     user = st.session_state.user
     role = user['role']
-    
-    # القائمة الجانبية
+
+    # --- القائمة الجانبية ---
     with st.sidebar:
-        st.write(f"### 👤 {user['name']}")
+        st.markdown(f"### مرحباً، {user['name']}")
+        st.info(f"صلاحية: {role}")
         st.divider()
-        if role == "owner": menu = ["لوحة المؤشرات", "التقويم الشهري", "الاعتمادات النهائية", "الطلبات الخارجية", "التقارير"]
-        elif role == "coordinator": menu = ["لوحة المؤشرات", "الالتقويم الشهري", "مراجعة الإجازات", "رفع جداول الإكسل"]
-        else: menu = ["تقويمي الشخصي", "تقديم طلب إجازة"]
+        
+        if role == "owner":
+            menu = ["لوحة المؤشرات", "تقويم الفعاليات", "الاعتمادات النهائية", "الطلبات الخارجية", "التقارير"]
+        elif role == "coordinator":
+            menu = ["لوحة المؤشرات", "تقويم الفعاليات", "مراجعة الإجازات", "رفع جداول الإكسل"]
+        else:
+            menu = ["تقويمي الشخصي", "تقديم طلب إجازة"]
+        
         choice = st.radio("القائمة الرئيسية", menu)
         
         st.divider()
-        st.write("🗓️ **تصفية الفترة (للداشبورد)**")
-        d_start = st.date_input("من تاريخ", datetime(2026, 2, 1))
-        d_end = st.date_input("إلى تاريخ", datetime(2026, 3, 1))
+        st.write("🗓️ فلتر الفترة (للمؤشرات)")
+        d1 = st.date_input("من", datetime(2026, 2, 1))
+        d2 = st.date_input("إلى", datetime(2026, 3, 31))
         
         if st.button("تسجيل الخروج"):
             st.session_state.authenticated = False
             st.rerun()
 
-    # --- 5. الصفحات ---
+    # --- 5. منطق الصفحات ---
 
-    # أ. لوحة المؤشرات (المقاييس التي طلبتها)
     if choice == "لوحة المؤشرات":
         st.header("📊 لوحة المؤشرات الإجمالية")
-        df_view = st.session_state.staff_schedules.copy()
-        if not df_view.empty:
-            df_view['التاريخ'] = pd.to_datetime(df_view['التاريخ']).dt.date
-            df_view = df_view[(df_view['التاريخ'] >= d_start) & (df_view['التاريخ'] <= d_end)]
+        df = st.session_state.staff_schedules.copy()
+        if not df.empty:
+            df['التاريخ'] = pd.to_datetime(df['التاريخ']).dt.date
+            df = df[(df['التاريخ'] >= d1) & (df['التاريخ'] <= d2)]
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("إجمالي الساعات", f"{df_view['الساعات'].sum() if not df_view.empty else 0} س")
-        c2.metric("إجمالي السيشنات", len(df_view))
-        c3.metric("طلبات الإجازة", len([r for r in st.session_state.leave_requests if r['الحالة'] == 'معتمد نهائياً']))
-        c4.metric("الطلبات الخارجية", len(st.session_state.external_requests))
+        c1.metric("إجمالي الساعات", f"{df['الساعات'].sum() if not df.empty else 0} س")
+        c2.metric("عدد الفعاليات", len(df))
+        c3.metric("إجازات معتمدة", len([r for r in st.session_state.leave_requests if r['الحالة'] == 'معتمد نهائياً']))
+        c4.metric("طلبات خارجية", len(st.session_state.external_requests))
 
-        st.divider()
-        if not df_view.empty:
-            fig = px.bar(df_view, x="الموظف", y="الساعات", color="الإدارة", title="تحليل الساعات حسب الإدارة والموظف")
+        if not df.empty:
+            st.divider()
+            fig = px.bar(df, x="الموظف", y="الساعات", color="الإدارة", barmode="group", title="توزيع مجهود الموظفين")
             st.plotly_chart(fig, use_container_width=True)
 
-    # ب. التقويم الشهري (مثل SIMWorld)
     elif "تقويم" in choice:
-        st.header(f"📅 التقويم الشهري - فبراير 2026")
+        st.header(f"📅 تقويم شهر فبراير 2026")
         
-        # إنشاء مصفوفة الشهر
+        # أيام الأسبوع
+        days_header = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+        cols = st.columns(7)
+        for i, day_name in enumerate(days_header):
+            cols[i].markdown(f"<div class='cal-head'>{day_name}</div>", unsafe_allow_html=True)
+        
+        # مصفوفة الشهر
         cal = calendar.monthcalendar(2026, 2)
-        days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
-        
-        # بناء جدول HTML للتقويم
-        html = "<table class='calendar-table'><thead><tr>"
-        for d in days: html += f"<th>{d}</th>"
-        html += "</tr></thead><tbody>"
-
         for week in cal:
-            html += "<tr>"
-            for day in week:
-                if day == 0:
-                    html += "<td></td>"
-                else:
-                    date_obj = datetime(2026, 2, day).date()
-                    date_str = str(date_obj)
-                    
-                    cell_content = f"<span class='day-num'>{day}</span>"
-                    
-                    # 1. جلب السيشنات
-                    day_tasks = st.session_state.staff_schedules[st.session_state.staff_schedules['التاريخ'].astype(str) == date_str]
-                    if role == "employee": day_tasks = day_tasks[day_tasks['الموظف'] == user['name']]
-                    
-                    for _, row in day_tasks.iterrows():
-                        cell_content += f"<div class='session-card' title='المدرب: {row['المدرب']}'>📖 {row['المهمة']}</div>"
-                    
-                    # 2. جلب الغائبين (للمدير والمنسق)
-                    if role != "employee":
-                        absents = [r['الموظف'] for r in st.session_state.leave_requests 
-                                   if r['الحالة'] == 'معتمد نهائياً' and r['من'] <= date_obj <= r['إلى']]
-                        for a in absents:
-                            cell_content += f<div class='absent-card'>🚫 {a}</div>"
-                    
-                    html += f"<td>{cell_content}</td>"
-            html += "</tr>"
-        html += "</tbody></table>"
-        st.markdown(html, unsafe_allow_html=True)
+            cols = st.columns(7)
+            for i, day in enumerate(week):
+                with cols[i]:
+                    if day == 0:
+                        st.markdown("<div class='cal-day' style='background:#f9fafb;'></div>", unsafe_allow_html=True)
+                    else:
+                        current_date = datetime(2026, 2, day).date()
+                        date_str = str(current_date)
+                        
+                        # تجميع المحتوى للخلية
+                        tasks_html = ""
+                        # 1. المهام
+                        day_tasks = st.session_state.staff_schedules[st.session_state.staff_schedules['التاريخ'].astype(str) == date_str]
+                        if role == "employee": day_tasks = day_tasks[day_tasks['الموظف'] == user['name']]
+                        for _, row in day_tasks.iterrows():
+                            tasks_html += f"<div class='task-card'>WORK: {row['المهمة']}</div>"
+                        
+                        # 2. الإجازات
+                        if role != "employee":
+                            absents = [r['الموظف'] for r in st.session_state.leave_requests 
+                                       if r['الحالة'] == 'معتمد نهائياً' and r['من'] <= current_date <= r['إلى']]
+                            for a in absents:
+                                tasks_html += f"<div class='leave-card'>OFF: {a}</div>"
+                        
+                        st.markdown(f"""
+                            <div class='cal-day'>
+                                <span class='day-number'>{day}</span>
+                                {tasks_html}
+                            </div>
+                        """, unsafe_allow_html=True)
 
-    # ج. رفع جداول الإكسل (للمنسق فقط)
     elif choice == "رفع جداول الإكسل":
-        st.header("📤 رفع بيانات السيشنات")
-        up = st.file_uploader("اختر ملف الإكسل", type=["xlsx"])
-        if up:
+        st.header("📤 رفع السيشنات الأسبوعية")
+        uploaded_file = st.file_uploader("اختر ملف الإكسل (XLSX)", type="xlsx")
+        if uploaded_file:
             try:
-                df = pd.read_excel(up)
-                df['التاريخ'] = pd.to_datetime(df['التاريخ']).dt.date
-                st.session_state.staff_schedules = df
-                st.success("تم التحديث! اذهب للتقويم لمشاهدة النتائج")
+                new_df = pd.read_excel(uploaded_file)
+                new_df['التاريخ'] = pd.to_datetime(new_df['التاريخ']).dt.date
+                st.session_state.staff_schedules = new_df
+                st.success("تم تحديث البيانات! اذهب للتقويم للمعاينة.")
             except Exception as e:
-                st.error("تأكد من وجود الأعمدة: [الموظف، التاريخ، المهمة، المنسق، المدرب، الساعات، الإدارة]")
+                st.error(f"خطأ في الملف: تأكد من تطابق الأعمدة المطلوبة.")
 
-    # د. الاعتمادات النهائية (المدير)
+    elif choice == "تقديم طلب إجازة":
+        st.header("📝 طلب إجازة")
+        with st.form("leave_f"):
+            s_date = st.date_input("بداية الإجازة")
+            e_date = st.date_input("نهاية الإجازة")
+            note = st.text_area("السبب")
+            if st.form_submit_button("إرسال للمنسق"):
+                st.session_state.leave_requests.append({
+                    "الموظف": user['name'], "من": s_date, "إلى": e_date, "السبب": note, "الحالة": "قيد الانتظار"
+                })
+                st.success("تم الإرسال بنجاح")
+
     elif choice == "الاعتمادات النهائية":
-        st.header("⚖️ اعتماد الإجازات")
+        st.header("⚖️ اعتماد الإجازات النهائية")
         to_approve = [r for r in st.session_state.leave_requests if r['الحالة'] == 'موافق عليه من المنسق']
         if to_approve:
             st.table(pd.DataFrame(to_approve))
-            emp_name = st.selectbox("اعتماد إجازة الموظف:", [r['الموظف'] for r in to_approve])
+            emp = st.selectbox("اختر الموظف للاعتماد", [r['الموظف'] for r in to_approve])
             if st.button("اعتماد نهائي"):
                 for r in st.session_state.leave_requests:
-                    if r['الموظف'] == emp_name and r['الحالة'] == 'موافق عليه من المنسق':
+                    if r['الموظف'] == emp and r['الحالة'] == 'موافق عليه من المنسق':
                         r['الحالة'] = 'معتمد نهائياً'
                 st.rerun()
-        else: st.info("لا توجد طلبات معتمدة من المنسقين حالياً")
+        else: st.info("لا توجد طلبات معلقة من المنسقين")
 
-    # هـ. الطلبات الخارجية
-    elif choice == "الالطلبات الخارجية":
+    elif choice == "الطلبات الخارجية":
         st.header("🌐 الطلبات الخارجية")
         if st.session_state.external_requests:
             st.dataframe(pd.DataFrame(st.session_state.external_requests), use_container_width=True)
         with st.expander("إضافة طلب جديد"):
-            col_ex1, col_ex2 = st.columns(2)
-            t = col_ex1.selectbox("النوع", ["دورة", "ورشة", "اجتماع"])
-            d = col_ex2.text_input("الإدارة الطالبة")
-            dt = st.date_input("التاريخ")
-            if st.button("حفظ"):
-                st.session_state.external_requests.append({"نوع الملف": t, "الإدارة": d, "التاريخ": str(dt), "الحالة": "جديد"})
-                st.rerun()
-
-    # و. تقديم إجازة (الموظف)
-    elif choice == "تقديم طلب إجازة":
-        with st.form("l_form"):
-            s = st.date_input("من")
-            e = st.date_input("إلى")
-            if st.form_submit_button("إرسال للمنسق"):
-                st.session_state.leave_requests.append({"الموظف": user['name'], "من": s, "إلى": e, "الحالة": "قيد الانتظار"})
-                st.success("تم الإرسال")
-
-    # ز. مراجعة الإجازات (المنسق)
-    elif choice == "مراجعة الإجازات":
-        pending = [r for r in st.session_state.leave_requests if r['الحالة'] == 'قيد الانتظار']
-        if pending:
-            st.table(pd.DataFrame(pending))
-            target = st.selectbox("مراجعة طلب:", [r['الموظف'] for r in pending])
-            if st.button("موافقة مبدئية"):
-                for r in st.session_state.leave_requests:
-                    if r['الموظف'] == target and r['الحالة'] == 'قيد الانتظار':
-                        r['الحالة'] = 'موافق عليه من المنسق'
+            col_a, col_b = st.columns(2)
+            tp = col_a.selectbox("نوع الملف", ["ورشة", "دورة", "زيارة"])
+            dp = col_b.text_input("الإدارة")
+            dt = st.date_input("التاريخ المتوقع")
+            if st.button("إضافة"):
+                st.session_state.external_requests.append({"النوع": tp, "الإدارة": dp, "التاريخ": str(dt), "الحالة": "جديد"})
                 st.rerun()
