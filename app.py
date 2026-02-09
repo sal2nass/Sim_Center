@@ -1,45 +1,32 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
-# --- 1. إعدادات الصفحة والتنسيق ---
+# --- 1. إعدادات الصفحة والتصميم ---
 st.set_page_config(page_title="SimCenter Pro OS", layout="wide")
 
-# تصميم CSS لتحسين الواجهة والخطوط
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-    * { font-family: 'Cairo', sans-serif; }
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-bottom: 4px solid #4B90FF; }
-    .stButton>button { border-radius: 8px; font-weight: bold; }
+    * { font-family: 'Cairo', sans-serif; direction: rtl; }
+    .stMetric { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .calendar-card { background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 5px; }
+    .absent-label { color: #d9534f; font-weight: bold; }
+    .session-label { color: #0275d8; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. نظام الترجمة (عربي/انجليزي) ---
-TRANSLATIONS = {
-    "العربية": {
-        "dir": "rtl", "dash": "لوحة المؤشرات", "leaves": "إدارة الإجازات", "cal": "تقويم الحضور والجدولة", 
-        "ext": "الطلبات الخارجية", "rep": "التقارير", "update": "تحديث البيانات اليومية", "profile": "ملفي الشخصي",
-        "apply": "تقديم طلب إجازة", "welcome": "مرحباً بك", "logout": "تسجيل خروج",
-        "working": "تعمل", "maintenance": "صيانة", "hours_status": "حالة الساعات التشغيلية"
-    },
-    "English": {
-        "dir": "ltr", "dash": "Dashboard", "leaves": "Leave Management", "cal": "Attendance & Scheduling", 
-        "ext": "External Requests", "rep": "Reports", "update": "Daily Data Update", "profile": "My Profile",
-        "apply": "Apply for Leave", "welcome": "Welcome", "logout": "Logout",
-        "working": "Working", "maintenance": "Maintenance", "hours_status": "Operation Hours Status"
-    }
-}
+# --- 2. إدارة البيانات الدائمة ---
+if 'leave_requests' not in st.session_state:
+    st.session_state.leave_requests = []
+if 'external_requests' not in st.session_state:
+    st.session_state.external_requests = []
+if 'staff_schedules' not in st.session_state:
+    # هيكل الجدول: [الموظف، التاريخ، المهمة، الساعات]
+    st.session_state.staff_schedules = pd.DataFrame(columns=["الموظف", "التاريخ", "المهمة", "الساعات"])
 
-# شريط اللغة الجانبي
-if 'lang' not in st.session_state: st.session_state.lang = "العربية"
-lang_choice = st.sidebar.selectbox("Language / اللغة", ["العربية", "English"])
-T = TRANSLATIONS[lang_choice]
-
-# --- 3. نظام الصلاحيات ---
+# --- 3. نظام المستخدمين ---
 USERS = {
     "sal2nass@gmail.com": {"name": "المدير العام", "role": "owner"},
     "sal4nass@gmail.com": {"name": "المنسق", "role": "coordinator"},
@@ -47,104 +34,133 @@ USERS = {
 }
 
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
-if 'leave_db' not in st.session_state: st.session_state.leave_db = []
 
-# --- 4. منطق تسجيل الدخول ---
+# --- 4. تسجيل الدخول ---
 if not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.title("🛡️ SimCenter OS")
-        email_input = st.text_input("البريد الإلكتروني | Email").lower().strip()
-        if st.button("دخول | Login"):
-            if email_input in USERS:
+        email_in = st.text_input("البريد الإلكتروني").lower().strip()
+        if st.button("دخول"):
+            if email_in in USERS:
                 st.session_state.authenticated = True
-                st.session_state.user = USERS[email_input]
+                st.session_state.user = USERS[email_in]
                 st.rerun()
-            else: st.error("Access Denied | غير مسجل")
+            else: st.error("المستخدم غير موجود")
 else:
-    curr_user = st.session_state.user
-    role = curr_user['role']
-    st.sidebar.markdown(f"### ✨ {T['welcome']}, {curr_user['name']}")
-    
-    # تحديد القوائم بناءً على الصلاحيات
-    if role == "owner": 
-        menu = [T['dash'], T['leaves'], T['cal'], T['ext'], T['rep']]
-    elif role == "coordinator": 
-        menu = [T['dash'], T['cal'], T['update']]
-    else: 
-        menu = [T['profile'], T['apply']]
-    
-    choice = st.sidebar.radio("Main Menu", menu)
+    user = st.session_state.user
+    role = user['role']
+    st.sidebar.subheader(f"👤 {user['name']}")
 
-    # --- 5. محتوى الصفحات ---
+    # القوائم
+    if role == "owner":
+        menu = ["لوحة المؤشرات", "التقويم العام", "الاعتمادات النهائية", "الطلبات الخارجية", "التقارير"]
+    elif role == "coordinator":
+        menu = ["لوحة المؤشرات", "التقويم العام", "مراجعة الإجازات", "رفع جداول الإكسل"]
+    else:
+        menu = ["ملفي الشخصي", "تقويمي الشخصي", "تقديم طلب إجازة"]
+    
+    choice = st.sidebar.radio("القائمة", menu)
 
-    if choice == T['dash']:
-        st.header(T['dash'])
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("مدربين اليوم", "8")
-        m2.metric("مشغلين اليوم", "5")
-        m3.metric("إجمالي الكادر", "25")
-        m4.metric("كورسات المحاكاة", "24")
-        st.markdown("---")
+    # --- 5. منطق الصفحات ---
+
+    # أ. لوحة المؤشرات
+    if choice == "لوحة المؤشرات":
+        st.header("📊 لوحة المؤشرات الإجمالية")
+        m1, m2, m3 = st.columns(3)
+        absent_today = [r['الموظف'] for r in st.session_state.leave_requests 
+                        if r['الحالة'] == 'معتمد نهائياً' and r['من'] <= datetime.now().date() <= r['إلى']]
+        m1.metric("المدربين المتواجدين", 15 - len(absent_today))
+        m2.metric("إجمالي الساعات التشغيلية", f"{st.session_state.staff_schedules['الساعات'].sum()} ساعة")
+        m3.metric("السيشنات المجدولة", len(st.session_state.staff_schedules))
+
+    # ب. التقويم (العام للمدير والمنسق / الشخصي للموظف)
+    elif choice in ["التقويم العام", "تقويمي الشخصي"]:
+        st.header(f"📅 {choice}")
         
-        c_chart1, c_chart2 = st.columns([2, 1])
-        with c_chart1:
-            st.subheader(T['hours_status'])
-            fig_gauge = go.Figure(go.Indicator(
-                mode = "gauge+number", value = 850,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                gauge = {'axis': {'range': [None, 1200]}, 'bar': {'color': "#4B90FF"}}
-            ))
-            fig_gauge.update_layout(height=300)
-            st.plotly_chart(fig_gauge, use_container_width=True)
+        # اختيار الشهر (افتراضياً الشهر الحالي)
+        today = datetime.now()
+        month_days = [today.replace(day=1) + timedelta(days=i) for i in range(30)]
+        
+        for day in month_days:
+            date_str = day.strftime('%Y-%m-%d')
+            with st.expander(f"📅 تاريخ: {day.strftime('%A %d/%m/%Y')}"):
+                
+                # 1. عرض الغيابات (للمدير والمنسق فقط)
+                if role != "employee":
+                    absents = [r['الموظف'] for r in st.session_state.leave_requests 
+                               if r['الحالة'] == 'معتمد نهائياً' and r['من'] <= day.date() <= r['إلى']]
+                    if absents:
+                        st.markdown(f"🚫 **غير متواجدين:** {', '.join(absents)}", unsafe_allow_html=True)
+                
+                # 2. عرض الحصص (السيشنات) من الإكسل
+                # تصفية الجدول بناءً على الموظف إذا كان هو المستخدم
+                sched = st.session_state.staff_schedules
+                if role == "employee":
+                    day_tasks = sched[(sched['الموظف'] == user['name']) & (sched['التاريخ'].astype(str) == date_str)]
+                else:
+                    day_tasks = sched[sched['التاريخ'].astype(str) == date_str]
+                
+                if not day_tasks.empty:
+                    st.write("📖 الحصص المجدولة:")
+                    st.dataframe(day_tasks[["الموظف", "المهمة", "الساعات"]], hide_index=True)
+                else:
+                    st.caption("لا توجد حصص مجدولة")
 
-        with c_chart2:
-            st.subheader("🤖 حالة الدمى")
-            fig_pie = px.pie(values=[32, 8], names=[T['working'], T['maintenance']], 
-                             color_discrete_sequence=["#28a745", "#dc3545"], hole=0.4)
-            fig_pie.update_layout(height=300, showlegend=True)
-            st.plotly_chart(fig_pie, use_container_width=True)
+    # ج. مراجعة الإجازات (المنسق)
+    elif choice == "مراجعة الإجازات":
+        st.header("🔍 مراجعة المنسق")
+        pending = [r for r in st.session_state.leave_requests if r['الحالة'] == 'قيد الانتظار']
+        if pending:
+            df_p = pd.DataFrame(pending)
+            st.table(df_p)
+            req_idx = st.selectbox("اختر رقم الطلب للموافقة المبدئية", range(len(st.session_state.leave_requests)))
+            if st.button("تحويل للمدير العام"):
+                st.session_state.leave_requests[req_idx]['الحالة'] = 'موافق عليه من المنسق'
+                st.rerun()
+        else: st.info("لا توجد طلبات جديدة")
 
-    elif choice == T['cal']:
-        st.header(T['cal'])
-        st.info("عرض التواجد اليومي والشهري للمساعدة في الجدولة")
-        current_date = datetime.now()
-        dates = [(current_date + timedelta(days=i)).strftime('%d/%m') for i in range(10)]
-        data_cal = {"الموظف / Employee": ["صالح", "أحمد", "سارة", "خالد", "نورة"]}
-        for d in dates: data_cal[d] = ["✅"] * 5
-        data_cal[dates[1]][1] = "❌" # مثال لغياب
-        st.dataframe(pd.DataFrame(data_cal).set_index("الموظف / Employee"), use_container_width=True)
+    # د. الاعتمادات النهائية (المدير)
+    elif choice == "الاعتمادات النهائية":
+        st.header("⚖️ قرار المدير العام")
+        to_approve = [r for r in st.session_state.leave_requests if r['الحالة'] == 'موافق عليه من المنسق']
+        if to_approve:
+            st.table(pd.DataFrame(to_approve))
+            req_idx = st.selectbox("اعتماد الطلب رقم", range(len(st.session_state.leave_requests)))
+            if st.button("🚀 اعتماد نهائي (سيظهر في التقويم كغياب)"):
+                st.session_state.leave_requests[req_idx]['الحالة'] = 'معتمد نهائياً'
+                st.success("تم الاعتماد وتحديث التقويم")
+                st.rerun()
+        else: st.info("لا توجد طلبات تنتظر الاعتماد")
 
-    elif choice == T['apply']:
-        st.subheader(T['apply'])
-        with st.form("leave_request"):
-            start = st.date_input("بداية الإجازة")
-            end = st.date_input("نهاية الإجازة")
-            reason = st.text_area("سبب الطلب")
-            if st.form_submit_button(T['apply']):
-                st.session_state.leave_db.append({"الموظف": curr_user['name'], "من": start, "إلى": end, "الحالة": "قيد الانتظار"})
-                st.balloons()
-                st.success("تم إرسال طلبك بنجاح")
+    # هـ. رفع جداول الإكسل (المنسق)
+    elif choice == "رفع جداول الإكسل":
+        st.header("📤 رفع السيشنات الأسبوعية")
+        st.info("يجب أن يحتوي الإكسل على الأعمدة: [الموظف، التاريخ، المهمة، الساعات]")
+        up = st.file_uploader("Upload Excel", type=["xlsx"])
+        if up:
+            try:
+                df_up = pd.read_excel(up)
+                df_up['التاريخ'] = pd.to_datetime(df_up['التاريخ']).dt.date
+                st.session_state.staff_schedules = df_up
+                st.success("تم تحديث الجدول بنجاح!")
+                st.dataframe(df_up)
+            except:
+                st.error("تأكد من مطابقة أسماء الأعمدة في ملف الإكسل")
 
-    elif choice == T['leaves'] and role == "owner":
-        st.header("📥 طلبات الإجازات الواردة")
-        if st.session_state.leave_db:
-            st.table(pd.DataFrame(st.session_state.leave_db))
-        else: st.info("لا توجد طلبات معلقة")
+    # و. تقديم طلب إجازة (الموظف)
+    elif choice == "تقديم طلب إجازة":
+        st.header("📝 طلب إجازة")
+        with st.form("l_form"):
+            s_d = st.date_input("البداية")
+            e_d = st.date_input("النهاية")
+            rea = st.text_area("السبب")
+            if st.form_submit_button("إرسال"):
+                st.session_state.leave_requests.append({
+                    "الموظف": user['name'], "من": s_d, "إلى": e_d, "السبب": rea, "الحالة": "قيد الانتظار"
+                })
+                st.success("تم الإرسال للمنسق")
 
-    elif choice == T['update'] and role == "coordinator":
-        st.header(T['update'])
-        with st.form("update_form"):
-            st.number_input("عدد المدربين", value=8)
-            st.number_input("عدد المشغلين", value=5)
-            st.number_input("عدد الدمى", value=32)
-            if st.form_submit_button("حفظ التحديثات"):
-                st.success("تم التحديث بنجاح")
-
-    elif choice == T['ext'] and role == "owner":
-        st.header(T['ext'])
-        st.write("جدول متابعة الطلبات الخارجية...")
-
-    if st.sidebar.button(T['logout']):
+    if st.sidebar.button("خروج"):
         st.session_state.authenticated = False
         st.rerun()
