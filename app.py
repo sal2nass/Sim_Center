@@ -603,7 +603,7 @@ if role == "EMPLOYEE" and page == "📝 Request Leave":
     end = c2.date_input("إلى", value=date.today())
     reason = st.text_input("السبب (اختياري)")
 
-    if st.button("Submit", use Tee := True, use_container_width=True):
+    if st.button("Submit", use_container_width=True):
         if end < start:
             st.error("تأكد أن تاريخ النهاية بعد البداية")
         else:
