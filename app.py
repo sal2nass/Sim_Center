@@ -145,48 +145,134 @@ def save_csv(df: pd.DataFrame, path: str):
 ensure_files()
 
 # =========================
-# 3) Login (Streamlit)
+# 3) Language Toggle (AR/EN)
+# =========================
+if "lang" not in st.session_state:
+    st.session_state.lang = "AR"
+
+lang_choice = st.sidebar.selectbox("Language / اللغة", ["AR", "EN"], index=0 if st.session_state.lang == "AR" else 1)
+st.session_state.lang = lang_choice
+
+T = {
+    "AR": {
+        "login_title": "🔐 تسجيل الدخول",
+        "email": "Email",
+        "login": "Login",
+        "logout": "Logout",
+        "user": "👤 المستخدم:",
+        "role": "🛡️ الدور:",
+        "menu": "القائمة",
+        "please_login": "فضلاً سجل دخولك من القائمة الجانبية.",
+        "not_allowed": "هذا الإيميل غير مصرح له",
+        "logged_out": "تم تسجيل الخروج",
+        "upload_excel": "⬆️ رفع ملف Excel",
+        "leader_dash": "🧭 لوحة الليدر",
+        "calendar": "🗓️ التقويم",
+        "leave_approvals_leader": "✅ موافقات الإجازات (ليدر)",
+        "leave_approvals_owner": "✅ موافقات الإجازات (مدير)",
+        "owner_dash": "📊 لوحة المدير",
+        "my_calendar": "🗓️ تقويمي",
+        "my_courses": "🎓 كورساتي",
+        "request_leave": "📝 طلب إجازة",
+        "from": "من",
+        "to": "إلى",
+        "reason": "السبب",
+        "submit": "Submit",
+        "dup_leave": "⚠️ سبق رفعت طلب إجازة بنفس التاريخ (من/إلى). اختر تاريخ مختلف.",
+        "sent_ok": "✅ تم رفع الطلب بنجاح وإرساله للّيدر.",
+        "no_requests": "لا توجد طلبات حالياً.",
+        "pending": "طلبات بانتظار قرارك",
+        "employee": "الموظف",
+        "approve": "اعتماد",
+        "reject": "رفض",
+        "done": "✅ تم تحديث الطلب",
+        "sessions_period": "Sessions (الفترة)",
+        "report_download": "⬇️ تنزيل تقرير HTML (جاهز للطباعة)",
+        "csv_download": "⬇️ تنزيل Sessions للفترة (CSV)",
+        "print_hint": "بعد تنزيل ملف HTML افتحه بالمتصفح واطبع مباشرة.",
+    },
+    "EN": {
+        "login_title": "🔐 Login",
+        "email": "Email",
+        "login": "Login",
+        "logout": "Logout",
+        "user": "👤 User:",
+        "role": "🛡️ Role:",
+        "menu": "Menu",
+        "please_login": "Please login from the sidebar.",
+        "not_allowed": "Email not allowed",
+        "logged_out": "Logged out",
+        "upload_excel": "⬆️ Upload Excel",
+        "leader_dash": "🧭 Leader Dashboard",
+        "calendar": "🗓️ Calendar",
+        "leave_approvals_leader": "✅ Leave Approvals (Leader)",
+        "leave_approvals_owner": "✅ Leave Approvals (Owner)",
+        "owner_dash": "📊 Owner Dashboard",
+        "my_calendar": "🗓️ My Calendar",
+        "my_courses": "🎓 My Courses",
+        "request_leave": "📝 Request Leave",
+        "from": "From",
+        "to": "To",
+        "reason": "Reason",
+        "submit": "Submit",
+        "dup_leave": "⚠️ You already submitted the same leave dates. Choose different dates.",
+        "sent_ok": "✅ Request submitted and sent to the leader.",
+        "no_requests": "No requests right now.",
+        "pending": "Requests awaiting your decision",
+        "employee": "Employee",
+        "approve": "Approve",
+        "reject": "Reject",
+        "done": "✅ Request updated",
+        "sessions_period": "Sessions (Period)",
+        "report_download": "⬇️ Download HTML Report (Printable)",
+        "csv_download": "⬇️ Download Sessions CSV (Period)",
+        "print_hint": "Open the downloaded HTML in your browser and print it.",
+    }
+}
+tr = T[st.session_state.lang]
+
+# =========================
+# 4) Login (Streamlit) - Clean Buttons
 # =========================
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 if "role" not in st.session_state:
     st.session_state.role = ""
 
-st.sidebar.title("🔐 تسجيل الدخول")
-email_in = st.sidebar.text_input("Email", value=st.session_state.user_email)
+st.sidebar.title(tr["login_title"])
+email_in = st.sidebar.text_input(tr["email"], value=st.session_state.user_email)
 
-c1, c2 = st.sidebar.columns(2)
-with c1:
-    if st.button("Login"):
-        role = get_role(email_in)
-        if role == "DENY":
-            st.sidebar.error("هذا الإيميل غير مصرح له")
+# Only one button: Login OR Logout
+if not st.session_state.role:
+    if st.sidebar.button(tr["login"]):
+        role_ = get_role(email_in)
+        if role_ == "DENY":
+            st.sidebar.error(tr["not_allowed"])
         else:
             st.session_state.user_email = email_in.strip().lower()
-            st.session_state.role = role
-            st.sidebar.success(f"Logged in as: {role}")
+            st.session_state.role = role_
+            st.sidebar.success(f"Logged in as: {role_}")
             st.rerun()
-
-with c2:
-    if st.button("Logout"):
+else:
+    if st.sidebar.button(tr["logout"]):
         st.session_state.user_email = ""
         st.session_state.role = ""
-        st.sidebar.info("تم تسجيل الخروج")
+        st.sidebar.info(tr["logged_out"])
         st.rerun()
 
 if not st.session_state.role:
-    st.info("فضلاً سجل دخولك من القائمة الجانبية.")
+    st.info(tr["please_login"])
     st.stop()
 
 st.sidebar.markdown("---")
-st.sidebar.write("👤 المستخدم:", st.session_state.user_email)
-st.sidebar.write("🛡️ الدور:", st.session_state.role)
+st.sidebar.write(tr["user"], st.session_state.user_email)
+st.sidebar.write(tr["role"], st.session_state.role)
 
 role = st.session_state.role
 me = st.session_state.user_email
 
 # =========================
-# 4) Common Helpers
+# 5) Helpers
 # =========================
 def parse_date_safe(x):
     try:
@@ -200,6 +286,11 @@ def month_name_ar(m: int) -> str:
         7:"يوليو",8:"أغسطس",9:"سبتمبر",10:"أكتوبر",11:"نوفمبر",12:"ديسمبر"
     }
     return names.get(m, str(m))
+
+def month_name(m: int) -> str:
+    if st.session_state.lang == "AR":
+        return month_name_ar(m)
+    return calendar.month_name[m]
 
 def filter_sessions_by_range(sessions_df: pd.DataFrame, d_from: date, d_to: date) -> pd.DataFrame:
     if sessions_df.empty:
@@ -222,7 +313,6 @@ def unavailable_for_day(day: date, leaves_df: pd.DataFrame) -> list[str]:
     return sorted(list(set(unavail)))
 
 def employee_has_same_leave_request(leaves_df: pd.DataFrame, employee_email: str, start_d: date, end_d: date) -> bool:
-    """منع تكرار نفس الفترة لنفس الموظف."""
     if leaves_df.empty:
         return False
     emp = (employee_email or "").strip().lower()
@@ -271,28 +361,28 @@ th {{ background:#f3f4f8; }}
 <body>
   <div class="card">
     <h1>{title}</h1>
-    <div class="small">تم إنشاء التقرير: {datetime.now().strftime("%Y-%m-%d %H:%M")}</div>
+    <div class="small">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}</div>
     <hr style="border:0;border-top:1px solid #e8eaf2;margin:14px 0;" />
     <div class="kpi-row">{rows_kpi}</div>
     {tables_html}
     <hr style="border:0;border-top:1px solid #e8eaf2;margin:14px 0;" />
-    <div class="small">للطباعة: File → Print من المتصفح.</div>
+    <div class="small">Print: File → Print</div>
   </div>
 </body>
 </html>
 """
 
 # =========================
-# 5) Navigation by Role
+# 6) Navigation by Role (Translated titles)
 # =========================
 if role == "OWNER":
-    pages = ["📊 Owner Dashboard", "🗓️ Calendar", "✅ Leave Approvals (Final)"]
+    pages = [tr["owner_dash"], tr["calendar"], tr["leave_approvals_owner"]]
 elif role == "LEADER":
-    pages = ["🧭 Leader Dashboard", "⬆️ Upload Excel", "🗓️ Calendar", "✅ Leave Approvals (Leader)"]
+    pages = [tr["leader_dash"], tr["upload_excel"], tr["calendar"], tr["leave_approvals_leader"]]
 else:
-    pages = ["🗓️ My Calendar", "🎓 My Courses", "📝 Request Leave"]
+    pages = [tr["my_calendar"], tr["my_courses"], tr["request_leave"]]
 
-page = st.sidebar.radio("القائمة", pages)
+page = st.sidebar.radio(tr["menu"], pages)
 
 # Load data
 sessions = load_csv(SESSIONS_FILE, ["date","title","location","room","assigned_email","duration_hours"])
@@ -302,20 +392,18 @@ mannequins = load_csv(MANNEQUINS_FILE, ["total","working","maintenance","updated
 outgoing = load_csv(OUTGOING_FILE, ["title","target_entity","request_date","last_update","updated_by","updated_at"])
 
 # =========================
-# 6) LEADER: Upload Excel (Append)
+# 7) LEADER: Upload Excel
 # =========================
-if role in ["LEADER","OWNER"] and page == "⬆️ Upload Excel":
-    st.title("⬆️ رفع ملف Excel")
-    st.caption("صيغة الملف: Sheet Sessions + Sheet Courses")
-
+if role in ["LEADER","OWNER"] and page == tr["upload_excel"]:
+    st.title(tr["upload_excel"])
     st.markdown("""
 <div class="card">
-<b>Sessions</b> أعمدة: date, title, location, room, assigned_email, duration_hours<br/>
-<b>Courses</b> أعمدة: employee_email, course, due_date
+<b>Sessions</b>: date, title, location, room, assigned_email, duration_hours<br/>
+<b>Courses</b>: employee_email, course, due_date
 </div>
 """, unsafe_allow_html=True)
 
-    uploaded = st.file_uploader("ارفع ملف Excel", type=["xlsx"])
+    uploaded = st.file_uploader("Excel (.xlsx)", type=["xlsx"])
     if uploaded:
         try:
             xls = pd.ExcelFile(uploaded)
@@ -329,7 +417,7 @@ if role in ["LEADER","OWNER"] and page == "⬆️ Upload Excel":
                 s_df = s_df[needed]
                 sessions2 = pd.concat([sessions, s_df], ignore_index=True)
                 save_csv(sessions2, SESSIONS_FILE)
-                st.success("✅ تم تحديث Sessions")
+                st.success("✅ Sessions updated")
 
             if "Courses" in xls.sheet_names:
                 c_df = xls.parse("Courses")
@@ -340,25 +428,24 @@ if role in ["LEADER","OWNER"] and page == "⬆️ Upload Excel":
                 c_df = c_df[needed2]
                 courses2 = pd.concat([courses, c_df], ignore_index=True)
                 save_csv(courses2, COURSES_FILE)
-                st.success("✅ تم تحديث Courses")
+                st.success("✅ Courses updated")
 
-            st.info("ملاحظة: حالياً النظام يضيف (Append). إذا تبي (Replace) نضيف زر لاحقاً.")
+            st.info("Current mode: Append (adds new rows).")
         except Exception as e:
-            st.error(f"فشل قراءة الملف: {e}")
+            st.error(f"Excel read failed: {e}")
 
 # =========================
-# 7) LEADER: Dashboard (Mannequins + Outgoing)
+# 8) LEADER: Dashboard (Mannequins + Outgoing)
 # =========================
 def leader_mannequin_section():
-    st.subheader("🧍‍♂️ المانيكان (يدخله الليدر)")
+    st.subheader("🧍‍♂️ Mannequins")
     cur = mannequins.iloc[0] if len(mannequins) else {"total":0,"working":0,"maintenance":0}
     col1, col2, col3 = st.columns(3)
     total = col1.number_input("Total", min_value=0, value=int(cur.get("total",0) or 0))
     working = col2.number_input("Working", min_value=0, value=int(cur.get("working",0) or 0))
     maintenance = col3.number_input("Maintenance", min_value=0, value=int(cur.get("maintenance",0) or 0))
 
-    save_btn = st.button("💾 حفظ بيانات المانيكان", use_container_width=True)
-    if save_btn:
+    if st.button("💾 Save Mannequins", use_container_width=True):
         df = pd.DataFrame([{
             "total": total,
             "working": working,
@@ -367,22 +454,22 @@ def leader_mannequin_section():
             "updated_at": datetime.now().isoformat(timespec="seconds")
         }])
         save_csv(df, MANNEQUINS_FILE)
-        st.success("✅ تم حفظ بيانات المانيكان")
+        st.success("✅ Saved")
         st.rerun()
 
 def leader_outgoing_section():
-    st.subheader("📤 الطلبات الخارجة من المركز (يدخلها الليدر)")
-    with st.expander("➕ إضافة طلب جديد", expanded=True):
+    st.subheader("📤 Outgoing Requests")
+    with st.expander("➕ Add New Request", expanded=True):
         c1, c2 = st.columns(2)
-        title = c1.text_input("عنوان الطلب")
-        target = c2.text_input("الجهة")
+        title = c1.text_input("Title")
+        target = c2.text_input("Target Entity")
         c3, c4 = st.columns(2)
-        req_date = c3.date_input("تاريخ الطلب", value=date.today())
-        last_update = c4.text_input("آخر تحديث / الحالة")
+        req_date = c3.date_input("Request Date", value=date.today())
+        last_update = c4.text_input("Last Update / Status")
 
-        if st.button("إضافة الطلب", use_container_width=True):
+        if st.button("Add", use_container_width=True):
             if not title.strip() or not target.strip():
-                st.error("الرجاء تعبئة العنوان والجهة")
+                st.error("Fill title + target")
             else:
                 o2 = pd.concat([outgoing, pd.DataFrame([{
                     "title": title.strip(),
@@ -393,62 +480,57 @@ def leader_outgoing_section():
                     "updated_at": datetime.now().isoformat(timespec="seconds")
                 }])], ignore_index=True)
                 save_csv(o2, OUTGOING_FILE)
-                st.success("✅ تمت الإضافة")
+                st.success("✅ Added")
                 st.rerun()
 
     if outgoing.empty:
-        st.info("لا توجد طلبات.")
+        st.info("No outgoing requests.")
         return
 
-    show = outgoing.copy()
-    show = show.sort_values("updated_at", ascending=False)
+    show = outgoing.copy().sort_values("updated_at", ascending=False)
     st.dataframe(show, use_container_width=True)
 
-    with st.expander("✏️ تحديث آخر تحديث لطلب", expanded=False):
+    with st.expander("✏️ Update Status", expanded=False):
         idxs = list(show.index)
-        pick = st.selectbox("اختر (index) من الجدول", idxs)
-        new_update = st.text_input("آخر تحديث جديد", value=str(show.loc[pick, "last_update"]))
-        if st.button("تحديث", use_container_width=True):
+        pick = st.selectbox("Pick index", idxs)
+        new_update = st.text_input("New Last Update", value=str(show.loc[pick, "last_update"]))
+        if st.button("Update", use_container_width=True):
             outgoing.loc[pick, "last_update"] = new_update.strip()
             outgoing.loc[pick, "updated_by"] = me
             outgoing.loc[pick, "updated_at"] = datetime.now().isoformat(timespec="seconds")
             save_csv(outgoing, OUTGOING_FILE)
-            st.success("✅ تم التحديث")
+            st.success("✅ Updated")
             st.rerun()
 
-if role in ["LEADER","OWNER"] and page == "🧭 Leader Dashboard":
-    st.title("🧭 Leader Dashboard")
-    st.caption("هذه صفحة الليدر الحالية. (وبعدين نفصلها لليدر آخر حسب مهامكم)")
-
+if role in ["LEADER","OWNER"] and page == tr["leader_dash"]:
+    st.title(tr["leader_dash"])
     a, b = st.columns([1,1])
     with a:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         leader_mannequin_section()
         st.markdown("</div>", unsafe_allow_html=True)
-
     with b:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         leader_outgoing_section()
         st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
-# 8) OWNER: Dashboard (Filters + Charts + Export + Print Report)
+# 9) OWNER: Dashboard (Filters + Charts + Export + Report)
 # =========================
-if role == "OWNER" and page == "📊 Owner Dashboard":
-    st.title("📊 Owner Dashboard")
+if role == "OWNER" and page == tr["owner_dash"]:
+    st.title(tr["owner_dash"])
 
-    # Date filter
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1,1,1])
     today = date.today()
     default_from = date(today.year, today.month, 1)
-    d_from = c1.date_input("من", value=default_from)
-    d_to = c2.date_input("إلى", value=today)
-    expected_hours = c3.number_input("الساعات المستهدفة (Baseline)", min_value=0, value=1200, step=50)
+    d_from = c1.date_input(tr["from"], value=default_from)
+    d_to = c2.date_input(tr["to"], value=today)
+    expected_hours = c3.number_input("Baseline Hours", min_value=0, value=1200, step=50)
     st.markdown("</div>", unsafe_allow_html=True)
 
     if d_to < d_from:
-        st.error("تأكد أن تاريخ (إلى) بعد (من)")
+        st.error("Invalid range")
         st.stop()
 
     s_range = filter_sessions_by_range(sessions, d_from, d_to)
@@ -465,42 +547,40 @@ if role == "OWNER" and page == "📊 Owner Dashboard":
 
     utilization = (actual_hours / float(expected_hours) * 100.0) if expected_hours else 0.0
 
-    # KPI Cards
     k1, k2, k3, k4 = st.columns(4)
-    k1.markdown(f"<div class='kpi'><div class='label'>عدد السيشنات</div><div class='value'>{sessions_count}</div><div class='sub'>ضمن الفترة</div></div>", unsafe_allow_html=True)
-    k2.markdown(f"<div class='kpi'><div class='label'>عدد الساعات الفعلية</div><div class='value'>{actual_hours:.1f}</div><div class='sub'>ضمن الفترة</div></div>", unsafe_allow_html=True)
-    k3.markdown(f"<div class='kpi'><div class='label'>عدد الغرف المستخدمة</div><div class='value'>{rooms_used}</div><div class='sub'>حسب room</div></div>", unsafe_allow_html=True)
-    k4.markdown(f"<div class='kpi'><div class='label'>معدل استخدام المركز</div><div class='value'>{utilization:.1f}%</div><div class='sub'>Baseline: {int(expected_hours)} ساعة</div></div>", unsafe_allow_html=True)
+    k1.markdown(f"<div class='kpi'><div class='label'>Sessions</div><div class='value'>{sessions_count}</div><div class='sub'>Period</div></div>", unsafe_allow_html=True)
+    k2.markdown(f"<div class='kpi'><div class='label'>Actual Hours</div><div class='value'>{actual_hours:.1f}</div><div class='sub'>Period</div></div>", unsafe_allow_html=True)
+    k3.markdown(f"<div class='kpi'><div class='label'>Rooms Used</div><div class='value'>{rooms_used}</div><div class='sub'>Based on room</div></div>", unsafe_allow_html=True)
+    k4.markdown(f"<div class='kpi'><div class='label'>Utilization</div><div class='value'>{utilization:.1f}%</div><div class='sub'>Baseline: {int(expected_hours)}</div></div>", unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
     left, right = st.columns([1.3, 1])
     with left:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("📈 ساعات الاستخدام حسب الغرفة")
+        st.subheader("📈 Hours by Room")
         if not s_range.empty:
             tmp = s_range.copy()
-            tmp["room"] = tmp["room"].fillna("غير محدد").astype(str)
+            tmp["room"] = tmp["room"].fillna("Unspecified").astype(str)
             g = tmp.groupby("room", as_index=False)["duration_hours"].sum().sort_values("duration_hours", ascending=False)
             fig = px.bar(g, x="room", y="duration_hours")
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("لا توجد بيانات جلسات ضمن الفترة.")
+            st.info("No sessions in this period.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("🧍‍♂️ المانيكان")
+        st.subheader("🧍‍♂️ Mannequins")
         st.dataframe(mannequins, use_container_width=True)
-        st.subheader("📤 الطلبات الخارجة")
+        st.subheader("📤 Outgoing")
         st.dataframe(outgoing.sort_values("updated_at", ascending=False) if not outgoing.empty else outgoing, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    # Exports
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🧾 تصدير النتائج / تقرير للطباعة")
+    st.subheader("🧾 Export / Printable Report")
 
     export_df = s_range.copy()
     if export_df.empty:
@@ -508,22 +588,21 @@ if role == "OWNER" and page == "📊 Owner Dashboard":
 
     csv_bytes = export_df.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
-        label="⬇️ تنزيل Sessions للفترة (CSV)",
+        label=tr["csv_download"],
         data=csv_bytes,
         file_name=f"sessions_{d_from}_{d_to}.csv",
         mime="text/csv",
         use_container_width=True
     )
 
-    # HTML Report (printable)
     report_kpis = {
-        "عدد السيشنات": sessions_count,
-        "عدد الساعات": f"{actual_hours:.1f}",
-        "الغرف المستخدمة": rooms_used,
-        "معدل الاستخدام": f"{utilization:.1f}%"
+        "Sessions": sessions_count,
+        "Hours": f"{actual_hours:.1f}",
+        "Rooms": rooms_used,
+        "Utilization": f"{utilization:.1f}%"
     }
     tables = {
-        "Sessions (الفترة)": export_df.head(500),  # limit for report
+        tr["sessions_period"]: export_df.head(500),
         "Outgoing Requests": outgoing.sort_values("updated_at", ascending=False).head(200) if not outgoing.empty else outgoing,
         "Mannequins": mannequins
     }
@@ -533,83 +612,105 @@ if role == "OWNER" and page == "📊 Owner Dashboard":
         tables=tables
     )
     st.download_button(
-        label="⬇️ تنزيل تقرير HTML (جاهز للطباعة)",
+        label=tr["report_download"],
         data=html.encode("utf-8"),
         file_name=f"simcenter_report_{d_from}_{d_to}.html",
         mime="text/html",
         use_container_width=True
     )
-    st.caption("بعد تنزيل ملف HTML افتحه بالمتصفح واطبع مباشرة.")
+    st.caption(tr["print_hint"])
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
-# 9) Leave Approvals (Leader / Owner)
+# 10) Leave Approvals (Leader / Owner) - Clean Card UI
 # =========================
-if (role == "LEADER" and page == "✅ Leave Approvals (Leader)") or (role == "OWNER" and page == "✅ Leave Approvals (Final)"):
-    if role == "LEADER":
-        st.title("✅ موافقات الإجازة (Leader - مبدئية)")
-        view = leaves[leaves["status"] == "PENDING_LEADER"].copy()
-    else:
-        st.title("✅ موافقات الإجازة (Owner - نهائية)")
-        view = leaves[leaves["status"] == "PENDING_OWNER"].copy()
+def render_leave_card(row, idx, is_leader: bool, leaves_df: pd.DataFrame):
+    emp = str(row.get("employee_email","")).strip()
+    sd = str(row.get("start_date","")).strip()
+    ed = str(row.get("end_date","")).strip()
+    rs = str(row.get("reason","")).strip()
 
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+        <div>
+          <div style="font-weight:800; font-size:16px;">{tr["employee"]}: {emp}</div>
+          <div class="small">{tr["from"]}: <b>{sd}</b> &nbsp; | &nbsp; {tr["to"]}: <b>{ed}</b></div>
+          <div class="small">{tr["reason"]}: {rs if rs else "-"}</div>
+        </div>
+        <div style="text-align:left;">
+          <span class="pill gray">{row.get("status","")}</span>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if view.empty:
-        st.info("لا توجد طلبات حالياً.")
-        st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        view_show = view.copy()
-        view_show = view_show.sort_values("created_at", ascending=False)
-        st.dataframe(view_show, use_container_width=True)
-
-        row_ids = list(view_show.index)
-        pick = st.selectbox("اختر طلب (index) من الجدول", row_ids)
-        action = st.selectbox("الإجراء", ["approve", "reject"])
-
-        if st.button("تنفيذ القرار", use_container_width=True):
+    cA, cB = st.columns(2)
+    with cA:
+        if st.button(f"✅ {tr['approve']} #{idx}", use_container_width=True):
             now = datetime.now().isoformat(timespec="seconds")
-
-            if role == "LEADER":
-                if action == "approve":
-                    leaves.loc[pick, "status"] = "PENDING_OWNER"
-                else:
-                    leaves.loc[pick, "status"] = "REJECTED_LEADER"
-                leaves.loc[pick, "leader_email"] = me
-
-            if role == "OWNER":
-                if action == "approve":
-                    leaves.loc[pick, "status"] = "APPROVED_OWNER"
-                else:
-                    leaves.loc[pick, "status"] = "REJECTED_OWNER"
-                leaves.loc[pick, "owner_email"] = me
-
-            leaves.loc[pick, "updated_at"] = now
-            save_csv(leaves, LEAVES_FILE)
-            st.success("✅ تم تحديث الطلب")
+            if is_leader:
+                leaves_df.loc[idx, "status"] = "PENDING_OWNER"
+                leaves_df.loc[idx, "leader_email"] = me
+            else:
+                leaves_df.loc[idx, "status"] = "APPROVED_OWNER"
+                leaves_df.loc[idx, "owner_email"] = me
+            leaves_df.loc[idx, "updated_at"] = now
+            save_csv(leaves_df, LEAVES_FILE)
+            st.success(tr["done"])
             st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
+    with cB:
+        if st.button(f"❌ {tr['reject']} #{idx}", use_container_width=True):
+            now = datetime.now().isoformat(timespec="seconds")
+            if is_leader:
+                leaves_df.loc[idx, "status"] = "REJECTED_LEADER"
+                leaves_df.loc[idx, "leader_email"] = me
+            else:
+                leaves_df.loc[idx, "status"] = "REJECTED_OWNER"
+                leaves_df.loc[idx, "owner_email"] = me
+            leaves_df.loc[idx, "updated_at"] = now
+            save_csv(leaves_df, LEAVES_FILE)
+            st.success(tr["done"])
+            st.rerun()
+
+if (role == "LEADER" and page == tr["leave_approvals_leader"]) or (role == "OWNER" and page == tr["leave_approvals_owner"]):
+    is_leader = (role == "LEADER")
+    st.title(tr["leave_approvals_leader"] if is_leader else tr["leave_approvals_owner"])
+
+    if is_leader:
+        view = leaves[leaves["status"] == "PENDING_LEADER"].copy()
+    else:
+        view = leaves[leaves["status"] == "PENDING_OWNER"].copy()
+
+    st.markdown(f"<div class='card'><b>{tr['pending']}</b></div>", unsafe_allow_html=True)
+
+    if view.empty:
+        st.info(tr["no_requests"])
+    else:
+        view = view.sort_values("created_at", ascending=False)
+        for idx, row in view.iterrows():
+            label = f"{row.get('employee_email','')} | {row.get('start_date','')} → {row.get('end_date','')}"
+            with st.expander(label, expanded=False):
+                render_leave_card(row, idx, is_leader=is_leader, leaves_df=leaves)
 
 # =========================
-# 10) EMPLOYEE: Request Leave (Prevent duplicates + success message)
+# 11) EMPLOYEE: Request Leave (Prevent duplicates)
 # =========================
-if role == "EMPLOYEE" and page == "📝 Request Leave":
-    st.title("📝 طلب إجازة")
-
+if role == "EMPLOYEE" and page == tr["request_leave"]:
+    st.title(tr["request_leave"])
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
-    start = c1.date_input("من", value=date.today())
-    end = c2.date_input("إلى", value=date.today())
-    reason = st.text_input("السبب (اختياري)")
+    start = c1.date_input(tr["from"], value=date.today())
+    end = c2.date_input(tr["to"], value=date.today())
+    reason = st.text_input(tr["reason"] + " (optional)")
 
-    if st.button("Submit", use_container_width=True):
+    if st.button(tr["submit"], use_container_width=True):
         if end < start:
-            st.error("تأكد أن تاريخ النهاية بعد البداية")
+            st.error("Invalid range")
         else:
-            # منع تكرار نفس الفترة
             if employee_has_same_leave_request(leaves, me, start, end):
-                st.warning("⚠️ سبق رفعت طلب إجازة بنفس التاريخ (من/إلى). اختر تاريخ مختلف.")
+                st.warning(tr["dup_leave"])
             else:
                 now = datetime.now().isoformat(timespec="seconds")
                 new_row = pd.DataFrame([{
@@ -625,55 +726,53 @@ if role == "EMPLOYEE" and page == "📝 Request Leave":
                 }])
                 leaves2 = pd.concat([leaves, new_row], ignore_index=True)
                 save_csv(leaves2, LEAVES_FILE)
-                st.success("✅ تم رفع الطلب بنجاح وإرساله للّيدر.")
+                st.success(tr["sent_ok"])
                 st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
-# 11) EMPLOYEE: My Courses
+# 12) EMPLOYEE: My Courses
 # =========================
-if role == "EMPLOYEE" and page == "🎓 My Courses":
-    st.title("🎓 الكورسات المطلوبة منك")
+if role == "EMPLOYEE" and page == tr["my_courses"]:
+    st.title(tr["my_courses"])
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-
     if courses.empty:
-        st.info("لا توجد كورسات حتى الآن (بانتظار رفع الليدر للملف).")
+        st.info("No courses yet." if st.session_state.lang == "EN" else "لا توجد كورسات حتى الآن.")
     else:
         my = courses.copy()
         my["employee_email"] = my["employee_email"].fillna("").astype(str).str.strip().str.lower()
         my = my[my["employee_email"] == me].copy()
         if my.empty:
-            st.info("لا توجد كورسات مسجلة لك حالياً.")
+            st.info("No assigned courses." if st.session_state.lang == "EN" else "لا توجد كورسات مسجلة لك حالياً.")
         else:
             st.dataframe(my.sort_values("due_date", na_position="last") if "due_date" in my.columns else my,
                          use_container_width=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
-# 12) Modern Calendar (All roles) + Day Details
+# 13) Calendar (Modern)
 # =========================
 def render_calendar_html(year: int, month: int, sessions_df: pd.DataFrame, leaves_df: pd.DataFrame) -> str:
-    # Prepare data
     s = sessions_df.copy()
     if not s.empty:
         s["date_parsed"] = s["date"].apply(parse_date_safe)
     else:
         s["date_parsed"] = None
 
-    month_cal = calendar.Calendar(firstweekday=6).monthdatescalendar(year, month)  # start Sunday (6)
-    dow = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]
+    month_cal = calendar.Calendar(firstweekday=6).monthdatescalendar(year, month)  # Sunday
+    dow_ar = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]
+    dow_en = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+    dow = dow_ar if st.session_state.lang == "AR" else dow_en
 
     today = date.today()
 
     html = "<div class='cal-wrap'>"
     html += "<div class='cal-head'>"
-    html += f"<div class='cal-title'>{month_name_ar(month)} {year}</div>"
-    html += "<div class='small'>اضغط على اليوم من اختيار التاريخ تحت التقويم لعرض التفاصيل</div>"
+    html += f"<div class='cal-title'>{month_name(month)} {year}</div>"
+    html += "<div class='small'>Pick a day below to see details</div>" if st.session_state.lang == "EN" else "<div class='small'>اختر يوم للتفاصيل بالأسفل</div>"
     html += "</div>"
 
-    # headers
     html += "<div class='cal-grid'>"
     for d in dow:
         html += f"<div class='cal-dow'>{d}</div>"
@@ -683,7 +782,7 @@ def render_calendar_html(year: int, month: int, sessions_df: pd.DataFrame, leave
             in_month = (day.month == month)
             muted = "" if in_month else " muted"
             num_class = "cal-num today" if day == today else "cal-num"
-            # events
+
             day_sessions = s[s["date_parsed"] == day] if not s.empty else pd.DataFrame()
             unavail = unavailable_for_day(day, leaves_df)
 
@@ -691,47 +790,42 @@ def render_calendar_html(year: int, month: int, sessions_df: pd.DataFrame, leave
             html += f"<div class='{num_class}'>{day.day}</div>"
             html += "<div class='cal-events'>"
 
-            # show up to 2 session pills
             if not day_sessions.empty:
-                # keep nice title
                 for _, row in day_sessions.head(2).iterrows():
                     title = str(row.get("title","")).strip() or "Session"
                     html += f"<span class='pill' title='{title}'>{title}</span>"
                 if len(day_sessions) > 2:
-                    html += f"<span class='pill gray'>+{len(day_sessions)-2} المزيد</span>"
+                    html += f"<span class='pill gray'>+{len(day_sessions)-2}</span>"
 
-            # show unavailability pill
             if len(unavail) > 0:
                 if len(unavail) == 1:
                     html += f"<span class='pill leave' title='Unavailable'>{unavail[0]}</span>"
                 else:
-                    html += f"<span class='pill leave'>{len(unavail)} غير متواجد</span>"
+                    label = f"{len(unavail)} Unavailable" if st.session_state.lang == "EN" else f"{len(unavail)} غير متواجد"
+                    html += f"<span class='pill leave'>{label}</span>"
 
             if day_sessions.empty and len(unavail) == 0:
-                html += f"<span class='pill gray'>لا يوجد</span>"
+                html += f"<span class='pill gray'>{'None' if st.session_state.lang == 'EN' else 'لا يوجد'}</span>"
 
             html += "</div></div>"
 
     html += "</div></div>"
     return html
 
-def calendar_page(read_only: bool, title: str):
+def calendar_page(title: str):
     st.title(title)
-
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     colA, colB, colC = st.columns([1,1,1])
     today = date.today()
-    year = colA.number_input("السنة", min_value=2020, max_value=2100, value=today.year, step=1)
-    month = colB.number_input("الشهر", min_value=1, max_value=12, value=today.month, step=1)
+    year = colA.number_input("Year" if st.session_state.lang == "EN" else "السنة", min_value=2020, max_value=2100, value=today.year, step=1)
+    month = colB.number_input("Month" if st.session_state.lang == "EN" else "الشهر", min_value=1, max_value=12, value=today.month, step=1)
 
     st.markdown(render_calendar_html(int(year), int(month), sessions, leaves), unsafe_allow_html=True)
-
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    picked_day = colC.date_input("اختر يوم للتفاصيل", value=today)
-    st.subheader(f"تفاصيل يوم: {picked_day.isoformat()}")
+    picked_day = colC.date_input("Pick day" if st.session_state.lang == "EN" else "اختر يوم", value=today)
+    st.subheader(("Details: " if st.session_state.lang == "EN" else "تفاصيل يوم: ") + picked_day.isoformat())
 
-    # day details
     day_sess = sessions.copy()
     if not day_sess.empty:
         day_sess["date_parsed"] = day_sess["date"].apply(parse_date_safe)
@@ -740,44 +834,38 @@ def calendar_page(read_only: bool, title: str):
         day_sess = pd.DataFrame(columns=["date","title","location","room","assigned_email","duration_hours"])
 
     if day_sess.empty:
-        st.info("لا توجد سيشنات في هذا اليوم.")
+        st.info("No sessions." if st.session_state.lang == "EN" else "لا توجد سيشنات في هذا اليوم.")
     else:
         if role in ["LEADER","OWNER"]:
-            # show flag if assigned person is unavailable
             tmp = day_sess.copy()
             tmp["assigned_email"] = tmp["assigned_email"].fillna("").astype(str).str.strip().str.lower()
             tmp["unavailable?"] = tmp["assigned_email"].apply(
-                lambda e: "نعم" if (e and (e in unavailable_for_day(picked_day, leaves))) else "لا"
+                lambda e: "Yes" if (e and (e in unavailable_for_day(picked_day, leaves))) else ("No" if st.session_state.lang == "EN" else "لا")
             )
+            if st.session_state.lang == "AR":
+                tmp["unavailable?"] = tmp["assigned_email"].apply(lambda e: "نعم" if (e and (e in unavailable_for_day(picked_day, leaves))) else "لا")
             st.dataframe(tmp, use_container_width=True)
         else:
             st.dataframe(day_sess, use_container_width=True)
 
     unavail_list = unavailable_for_day(picked_day, leaves)
     if unavail_list:
-        st.warning("⚠️ موظفين غير متواجدين (إجازات معتمدة): " + " , ".join(unavail_list))
+        msg = ("Unavailable employees: " if st.session_state.lang == "EN" else "موظفين غير متواجدين: ") + " , ".join(unavail_list)
+        st.warning(msg)
     else:
-        st.success("✅ لا يوجد إجازات معتمدة تؤثر على هذا اليوم.")
+        st.success("No approved leaves affect this day." if st.session_state.lang == "EN" else "لا يوجد إجازات معتمدة تؤثر على هذا اليوم.")
 
-    if read_only:
-        st.caption("الوضع: عرض فقط (Read-only).")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Owner Calendar
-if role == "OWNER" and page == "🗓️ Calendar":
-    calendar_page(read_only=True, title="🗓️ Calendar (Owner View)")
-
-# Leader Calendar
-if role == "LEADER" and page == "🗓️ Calendar":
-    calendar_page(read_only=False, title="🗓️ Calendar (Leader)")
-
-# Employee Calendar
-if role == "EMPLOYEE" and page == "🗓️ My Calendar":
-    calendar_page(read_only=True, title="🗓️ My Calendar (Employee)")
+# Calendar routing
+if page == tr["calendar"] and role in ["OWNER","LEADER"]:
+    calendar_page(tr["calendar"])
+if page == tr["my_calendar"] and role == "EMPLOYEE":
+    calendar_page(tr["my_calendar"])
 
 # =========================
 # Sidebar Footer
 # =========================
 st.sidebar.markdown("---")
-st.sidebar.caption("MVP v2 • تحسين التقويم + منع تكرار الإجازات + تقارير وتصدير.")
+st.sidebar.caption("MVP v3 • AR/EN + Clean approvals + Login/Logout toggle")
 
